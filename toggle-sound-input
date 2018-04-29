@@ -1,5 +1,6 @@
 #!/bin/bash
 # Only works on macOS.
+set -e
 
 STATE_FILE="$HOME/.toggle-sound-input.state"
 COLOR_RED='\033[0;31m'
