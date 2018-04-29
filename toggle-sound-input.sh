@@ -1,0 +1,58 @@
+#!/bin/bash
+# Only works on macOS.
+
+STATE_FILE="$HOME/.toggle-sound-input.state"
+COLOR_RED='\033[0;31m'
+COLOR_GREEN='\033[1;32m'
+
+function get_system_sound_input_level {
+    # `osascript -e 'get volume settings'` prints something like 'output volume:12, input volume:54, alert volume:100, output muted:false'.
+    # `cut -d ',' -f 2` prints 'input volume:54'.
+    # `grep …` parses number from cutted output.
+    osascript -e 'get volume settings' | cut -d ',' -f 2 | grep --extended-regexp --only-matching '\d{1,}'
+}
+
+# $1 input level to set [0..100].
+function set_system_sound_input_level {
+    osascript -e "set volume input volume $1"
+}
+
+# Normal values: [0..100].
+# No saved value: '-1'.
+function get_saved_sound_input_level {
+    if [ -f "$STATE_FILE" ]; then
+        local saved_sound_input_level=$(cat "$STATE_FILE" | grep --extended-regexp --only-matching '\d{1,}')
+        
+        # Check that value is within expected range.
+        if (( $saved_sound_input_level >= 0 && $saved_sound_input_level <= 100 )); then
+            echo $saved_sound_input_level
+        else
+            echo "State file corrupted $STATE_FILE, expected a number between 0 and 100."
+            exit 1
+        fi
+    else
+        echo -1
+    fi
+}
+
+# $1 input level to save.
+function save_sound_input_level {
+    echo "$1" > "$STATE_FILE"
+}
+
+function main {
+    local saved_sound_input_level=$(get_saved_sound_input_level)
+
+    if [ "$saved_sound_input_level" == "-1" ]; then
+        local system_sound_input_level=$(get_system_sound_input_level)
+        save_sound_input_level "$system_sound_input_level"
+        set_system_sound_input_level 0
+        echo -e "${COLOR_RED}Sound input muted."
+    else
+        set_system_sound_input_level "$saved_sound_input_level"
+        rm "$STATE_FILE"
+        echo -e "${COLOR_GREEN}Sound input level restored to $saved_sound_input_level."
+    fi
+}
+
+main
